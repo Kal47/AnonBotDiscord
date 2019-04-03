@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
+using Discord.Rest;
 
 namespace AnonBot
 {
@@ -20,9 +21,9 @@ namespace AnonBot
     class Program
     {
         private DiscordSocketClient _client;
-        string Token = "token";
+        string Token = "token"; //have it read from a file someday
         private List<ulong> channelList = new List<ulong>();
-        private String CatagoryName = "Anon";
+        private String CatagoryName = "ANON";
 
 
         // Discord.Net heavily utilizes TAP for async, so we create
@@ -78,13 +79,16 @@ namespace AnonBot
         // reading over the Commands Framework sample.
         private async Task MessageReceivedAsync(SocketMessage message)
         {
+            
             // The bot should never respond to itself.
             if (message.Author.Id == _client.CurrentUser.Id)
                 return;
 
             if (message.Content == "\\help")// help commands
                 await message.Channel.SendMessageAsync("Bot Commands:\n" +
-                    "");
+                    "something something idk");
+            else if (message.Content == "\\join")
+                await CreateAnonChannel((SocketGuildUser)message.Author);
             else
             {
                 //get all text channels in the guild the message was sent from
@@ -95,30 +99,60 @@ namespace AnonBot
                     foreach (var txChannel in guildTextChannels)//go though all channels on server
                     {
                         if (txChannel.Category.Name == CatagoryName)//check if channel is in the correct catagory name and send the message
+                        {
                             await txChannel.SendMessageAsync("**" + message.Id % 42069 + "**\n" + message.Content); //send message to all 
+                            await message.DeleteAsync();//deletes original message
+                        }
                     }
                 }
                 else
-                    Console.WriteLine("That casting is borked rip");    
+                    Console.WriteLine("That casting is borked rip");
             }
 
         }
 
+        // User Joined the Server
+        // Links to create annon channel method
         private async Task UserJoinedAsync(SocketGuildUser user)
         {
+            Console.WriteLine($"User joined {user.Username}!");
             await CreateAnonChannel(user);
         }
 
+        // User Left the server
+        // links to remove channel method
+        //this is needed so there are not exes channels around being used.
         private async Task UserLeftAsync(SocketGuildUser user)
         {
+            Console.WriteLine($"User left {user.Username}!");
             await RemoveAnnonChannel(user);       
         }
 
-
+        //
         private async Task RemoveAnnonChannel(SocketGuildUser user)
-        {
-            Console.WriteLine("Delteing thing dosnt work yet");
+        { 
+            foreach (var chan in user.Guild.Channels)
+            {
+                if (chan.Name == user.Id.ToString())//looks for channel the same name as user ID
+                {
+                    await chan.DeleteAsync();
+                }
+            }
+            
         }
+
+        private SocketCategoryChannel IsCatagoryInGuild(IReadOnlyCollection<SocketCategoryChannel> catagories, string name)
+        {
+            foreach (var cat in catagories)
+            {
+                if (cat.Name == name)
+                {
+                    return cat;
+                }
+            }
+            return null;
+        }
+
 
         /* User Joined
          * 1. Creates a new channgel named after the user
@@ -127,37 +161,75 @@ namespace AnonBot
          */
         private async Task CreateAnonChannel(SocketGuildUser user)
         {
+            Console.WriteLine($"Creating Channel for {user.Username}! for  Guild {user.Guild.Name}");
+
             //sees if catagory exists and creates one if there is none
-            foreach (var cat in user.Guild.CategoryChannels)
+            var anonCatagory = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName); 
+            if (anonCatagory == null)
             {
-                if (cat.Name != CatagoryName)
-                {  
-                    var catagory = await user.Guild.CreateCategoryChannelAsync(CatagoryName);
-                   // _client.Guilds.ElementAt(1).EveryoneRole;   ///find out how to get @everyone role
-                   // catagory.AddPermissionOverwriteAsync(IRole,)
-                    continue;
-                }
-
-            }
-
-
-                //creates a new channel that only the new user can acsess. 
-                var channel = await user.Guild.CreateTextChannelAsync(user.Username, x =>
-            {                
-                x.Topic = $"{user.Username}'s Channel";                
-                x.IsNsfw = true;   
-               
-                foreach (var cat in user.Guild.CategoryChannels)
+                Console.WriteLine($"Catagory not found");
+                await user.Guild.CreateCategoryChannelAsync(CatagoryName);
+                anonCatagory = IsCatagoryInGuild(user.Guild.CategoryChannels, CatagoryName);
+                SocketRole everyoneRole;
+                foreach (var role in user.Guild.Roles)
                 {
-                    if (cat.Name == CatagoryName)
+                    if (role.IsEveryone)
                     {
-                        x.CategoryId = cat.Id;
+                        everyoneRole = role;
+                        OverwritePermissions catPerms = new OverwritePermissions(
+                            PermValue.Deny,   //PermValue createInstantInvite
+                            PermValue.Deny,   //PermValue manageChannel
+                            PermValue.Deny,   //PermValue addReactions
+                            PermValue.Deny,   //PermValue viewChannel
+                            PermValue.Deny,   //PermValue sendMessages
+                            PermValue.Deny,   //PermValue sendTTSMessages
+                            PermValue.Deny,   //PermValue manageMessages
+                            PermValue.Deny,   //PermValue embedLinks
+                            PermValue.Deny,   //PermValue attachFiles  !!!I wish I can attach files idk, will leave this inherit and change it if it works
+                            PermValue.Deny,   //PermValue readMessageHistory
+                            PermValue.Deny,   //PermValue mentionEveryone
+                            PermValue.Deny,   //PermValue useExternalEmojis
+                            PermValue.Deny,   //PermValue connect
+                            PermValue.Deny,   //PermValue speak
+                            PermValue.Deny,   //PermValue muteMembers
+                            PermValue.Deny,   //PermValue deafenMembers
+                            PermValue.Deny,   //PermValue moveMembers
+                            PermValue.Deny,   //PermValue useVoiceActivation
+                            PermValue.Deny,   //PermValue manageRoles
+                            PermValue.Deny);  //PermValue manageWebhooks
+                        await anonCatagory.AddPermissionOverwriteAsync(everyoneRole, catPerms);
+                        Console.WriteLine($"New Catagory, ID {anonCatagory.Id}");                        
                         continue;
                     }
                 }
-                
+            }
+            Console.WriteLine($"Catagory, ID {anonCatagory.Id}");
+
+            
+            //creates a new channel that only the new user can acsess. 
+
+            var channel = await user.Guild.CreateTextChannelAsync(user.Id.ToString(), x =>//channel name is set to user ID so the delete method knows what channel to delete
+            {
+                x.Topic = "\\help for help text, bot commands do not get sent";
+                x.IsNsfw = true;
+                x.CategoryId = anonCatagory.Id; 
             });
 
+            
+            await user.Guild.GetChannel(channel.Id).ModifyAsync(x =>
+            {
+                x.CategoryId = anonCatagory.Id;
+            });
+
+            
+
+
+
+
+
+            /*Console.WriteLine($"Channel Name, {channel.Name}, ID {channel.Id}");
+
+            
             //Modify permersions on users channel
             OverwritePermissions channelPerms = new OverwritePermissions(
                  PermValue.Deny,    //PermValue createInstantInvite
@@ -182,11 +254,6 @@ namespace AnonBot
                  PermValue.Deny);   //PermValue manageWebhooks
             await channel.AddPermissionOverwriteAsync(user, channelPerms);
 
-            //add channel ID to the list
-
-            channelList.Add(channel.Id);
-            //write new channel to xml fle
-
             //Send Welcome Message
             var msg = await channel.SendMessageAsync($"**Welcome {user.Mention} to {user.Guild.Name}!**\n\n" +
                 "Everyone on this server is in a channel by themselves and the bot. " +
@@ -196,7 +263,8 @@ namespace AnonBot
                 "Use \"\\help\" - Brings up help text."
                 );
             //await user.Guild.AddPinAsync(channel.Id, msg.Id); //pin msg
-        }
+            */
+            }
 
 
 
