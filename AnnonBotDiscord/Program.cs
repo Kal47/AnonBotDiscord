@@ -21,10 +21,52 @@ namespace AnonBot
     class Program
     {
         private DiscordSocketClient _client;
-        string Token = "token"; //have it read from a file someday
-        private List<ulong> channelList = new List<ulong>();
+        string Token = "";
+        
         private String CatagoryName = "ANON";
+        private readonly OverwritePermissions PermissionsAnonCatagory = new OverwritePermissions(
+            PermValue.Deny,   //PermValue createInstantInvite
+            PermValue.Deny,   //PermValue manageChannel
+            PermValue.Deny,   //PermValue addReactions
+            PermValue.Deny,   //PermValue viewChannel
+            PermValue.Deny,   //PermValue sendMessages
+            PermValue.Deny,   //PermValue sendTTSMessages
+            PermValue.Deny,   //PermValue manageMessages
+            PermValue.Deny,   //PermValue embedLinks
+            PermValue.Deny,   //PermValue attachFiles  !!!I wish I can attach files idk, will leave this inherit and change it if it works
+            PermValue.Deny,   //PermValue readMessageHistory
+            PermValue.Deny,   //PermValue mentionEveryone
+            PermValue.Deny,   //PermValue useExternalEmojis
+            PermValue.Deny,   //PermValue connect
+            PermValue.Deny,   //PermValue speak
+            PermValue.Deny,   //PermValue muteMembers
+            PermValue.Deny,   //PermValue deafenMembers
+            PermValue.Deny,   //PermValue moveMembers
+            PermValue.Deny,   //PermValue useVoiceActivation
+            PermValue.Deny,   //PermValue manageRoles
+            PermValue.Deny);  //PermValue manageWebhooks
 
+        private readonly OverwritePermissions PermissionsAnnChannel = new OverwritePermissions(
+            PermValue.Deny,    //PermValue createInstantInvite
+            PermValue.Deny,    //PermValue manageChannel
+            PermValue.Deny,    //PermValue addReactions
+            PermValue.Allow,   //PermValue viewChannel
+            PermValue.Allow,   //PermValue sendMessages
+            PermValue.Deny,    //PermValue sendTTSMessages
+            PermValue.Deny,    //PermValue manageMessages
+            PermValue.Allow,   //PermValue embedLinks
+            PermValue.Inherit, //PermValue attachFiles  !!!I wish I can attach files idk, will leave this inherit and change it if it works
+            PermValue.Allow,   //PermValue readMessageHistory
+            PermValue.Deny,    //PermValue mentionEveryone
+            PermValue.Deny,    //PermValue useExternalEmojis
+            PermValue.Deny,    //PermValue connect
+            PermValue.Deny,    //PermValue speak
+            PermValue.Deny,    //PermValue muteMembers
+            PermValue.Deny,    //PermValue deafenMembers
+            PermValue.Deny,    //PermValue moveMembers
+            PermValue.Deny,    //PermValue useVoiceActivation
+            PermValue.Deny,    //PermValue manageRoles
+            PermValue.Deny);   //PermValue manageWebhooks
 
         // Discord.Net heavily utilizes TAP for async, so we create
         // an asynchronous context from the beginning.
@@ -80,6 +122,7 @@ namespace AnonBot
         private async Task MessageReceivedAsync(SocketMessage message)
         {
             
+
             // The bot should never respond to itself.
             if (message.Author.Id == _client.CurrentUser.Id)
                 return;
@@ -88,7 +131,7 @@ namespace AnonBot
                 await message.Channel.SendMessageAsync("Bot Commands:\n" +
                     "something something idk");
             else if (message.Content == "\\join")
-                await CreateAnonChannel((SocketGuildUser)message.Author);
+                await CreateAnonChannel((SocketGuildUser)message.Author);                
             else
             {
                 //get all text channels in the guild the message was sent from
@@ -141,63 +184,84 @@ namespace AnonBot
             
         }
 
-        private SocketCategoryChannel IsCatagoryInGuild(IReadOnlyCollection<SocketCategoryChannel> catagories, string name)
-        {
-            foreach (var cat in catagories)
+        /********************************************************
+         * Creates a new channel, for refrence only not used
+         * 
+         * ********************************************************/
+        public async Task CreateTextChat(string name, SocketGuild guild, string cName,  string startMessage = "")
+        {            
+            var text = await guild.CreateTextChannelAsync(name);
+            if (!(cName == ""))
             {
-                if (cat.Name == name)
+                ICategoryChannel category = guild.CategoryChannels.FirstOrDefault(x => x.Name == cName);
+
+                if (category == null)
                 {
-                    return cat;
+                    category = await guild.CreateCategoryChannelAsync(cName);
                 }
+
+                await text.ModifyAsync(x => x.CategoryId = category.Id);
+                
             }
-            return null;
+
+             Console.WriteLine("Created Text Channel: " + name);
         }
 
-
-        /* User Joined
+        /* **************************************************************
+         * Create Anon Channel
          * 1. Creates a new channgel named after the user
-         * 2. Sets permissions so the user can only see that channel
-         * 3. Adds the channel ID to a list 
-         */
+         * 2. Checks if a catagory is made if not creates one and sets permissions
+         * 4. Sets permissions on channel so the user can only see that channel
+         * 5. Send Welcome message and pins it. 
+         * ****************************************************************/
         private async Task CreateAnonChannel(SocketGuildUser user)
-        {
-            Console.WriteLine($"Creating Channel for {user.Username}! for  Guild {user.Guild.Name}");
+        {           
+            var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
 
+            Console.WriteLine($"Creating Channel for {user.Username}! for  Guild {user.Guild.Name}");
+            var text = await user.Guild.CreateTextChannelAsync(user.Id.ToString());
+            if (string.IsNullOrEmpty(CatagoryName))//this works somehow
+            {
+                ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
+
+                if (category == null)
+                {
+                    category = await user.Guild.CreateCategoryChannelAsync(CatagoryName);                    
+                }
+                await text.ModifyAsync(x => x.CategoryId = category.Id);
+                await category.AddPermissionOverwriteAsync(everyoneRole, PermissionsAnonCatagory);
+            }
+           
+            await text.AddPermissionOverwriteAsync(everyoneRole, PermissionsAnonCatagory);
+            await text.AddPermissionOverwriteAsync(user, PermissionsAnnChannel);
+            //await user.Guild.AddPinAsync(channel.Id, msg.Id); //pin msg
+            await text.SendMessageAsync($"**Welcome {user.Mention} to {user.Guild.Name}!**\n\n" +
+            "Everyone on this server is in a channel by themselves and the bot. " +
+            "The bot grabs all messages sent by users and sends them to everyone elses channel. " +
+            "Becouse the bot posts the message you don't know who sent the message.\n\n" +
+            "This bot does not log anything. You can view the source code at https://github.com/doc543/AnonBot \n" +
+            "Use \"\\help\" - Brings up help text."
+            );
+            Console.WriteLine("Created Text Channel: " + CatagoryName);
+
+
+            //         |
+            //old code V
+            /*
             //sees if catagory exists and creates one if there is none
             var anonCatagory = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName); 
             if (anonCatagory == null)
             {
                 Console.WriteLine($"Catagory not found");
                 await user.Guild.CreateCategoryChannelAsync(CatagoryName);
-                anonCatagory = IsCatagoryInGuild(user.Guild.CategoryChannels, CatagoryName);
+                anonCatagory = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
                 SocketRole everyoneRole;
                 foreach (var role in user.Guild.Roles)
                 {
                     if (role.IsEveryone)
                     {
-                        everyoneRole = role;
-                        OverwritePermissions catPerms = new OverwritePermissions(
-                            PermValue.Deny,   //PermValue createInstantInvite
-                            PermValue.Deny,   //PermValue manageChannel
-                            PermValue.Deny,   //PermValue addReactions
-                            PermValue.Deny,   //PermValue viewChannel
-                            PermValue.Deny,   //PermValue sendMessages
-                            PermValue.Deny,   //PermValue sendTTSMessages
-                            PermValue.Deny,   //PermValue manageMessages
-                            PermValue.Deny,   //PermValue embedLinks
-                            PermValue.Deny,   //PermValue attachFiles  !!!I wish I can attach files idk, will leave this inherit and change it if it works
-                            PermValue.Deny,   //PermValue readMessageHistory
-                            PermValue.Deny,   //PermValue mentionEveryone
-                            PermValue.Deny,   //PermValue useExternalEmojis
-                            PermValue.Deny,   //PermValue connect
-                            PermValue.Deny,   //PermValue speak
-                            PermValue.Deny,   //PermValue muteMembers
-                            PermValue.Deny,   //PermValue deafenMembers
-                            PermValue.Deny,   //PermValue moveMembers
-                            PermValue.Deny,   //PermValue useVoiceActivation
-                            PermValue.Deny,   //PermValue manageRoles
-                            PermValue.Deny);  //PermValue manageWebhooks
-                        await anonCatagory.AddPermissionOverwriteAsync(everyoneRole, catPerms);
+                        everyoneRole = role;                        
+                        await anonCatagory.AddPermissionOverwriteAsync(everyoneRole, PermissionsAnonCatagory);
                         Console.WriteLine($"New Catagory, ID {anonCatagory.Id}");                        
                         continue;
                     }
@@ -220,39 +284,19 @@ namespace AnonBot
             {
                 x.CategoryId = anonCatagory.Id;
             });
-
+            
             
 
 
 
 
 
-            /*Console.WriteLine($"Channel Name, {channel.Name}, ID {channel.Id}");
+            Console.WriteLine($"Channel Name, {channel.Name}, ID {channel.Id}");
 
             
             //Modify permersions on users channel
-            OverwritePermissions channelPerms = new OverwritePermissions(
-                 PermValue.Deny,    //PermValue createInstantInvite
-                 PermValue.Deny,    //PermValue manageChannel
-                 PermValue.Deny,    //PermValue addReactions
-                 PermValue.Allow,   //PermValue viewChannel
-                 PermValue.Allow,   //PermValue sendMessages
-                 PermValue.Deny,    //PermValue sendTTSMessages
-                 PermValue.Deny,    //PermValue manageMessages
-                 PermValue.Allow,   //PermValue embedLinks
-                 PermValue.Inherit, //PermValue attachFiles  !!!I wish I can attach files idk, will leave this inherit and change it if it works
-                 PermValue.Allow,   //PermValue readMessageHistory
-                 PermValue.Deny,    //PermValue mentionEveryone
-                 PermValue.Deny,    //PermValue useExternalEmojis
-                 PermValue.Deny,    //PermValue connect
-                 PermValue.Deny,    //PermValue speak
-                 PermValue.Deny,    //PermValue muteMembers
-                 PermValue.Deny,    //PermValue deafenMembers
-                 PermValue.Deny,    //PermValue moveMembers
-                 PermValue.Deny,    //PermValue useVoiceActivation
-                 PermValue.Deny,    //PermValue manageRoles
-                 PermValue.Deny);   //PermValue manageWebhooks
-            await channel.AddPermissionOverwriteAsync(user, channelPerms);
+           
+            await channel.AddPermissionOverwriteAsync(user, PermissionsAnnChannel);
 
             //Send Welcome Message
             var msg = await channel.SendMessageAsync($"**Welcome {user.Mention} to {user.Guild.Name}!**\n\n" +
