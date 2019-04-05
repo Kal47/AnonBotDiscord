@@ -2,10 +2,9 @@
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
-using System.Collections.Generic;
-using System.Configuration;
 using System.Linq;
-using Discord.Rest;
+using Blun.ConfigurationManager;
+using AnnonBotDiscord;
 
 namespace AnonBot
 {
@@ -14,59 +13,19 @@ namespace AnonBot
     // If writing a bot with commands, we recommend using the Discord.Net.Commands
     // framework, rather than handling commands yourself, like we do in this sample.
     //
-    // You can find samples of using the command framework:
-    // - Here, under the 02_commands_framework sample
+    // You can find samples of using the command framework:    // - Here, under the 02_commands_framework sample
     // - https://github.com/foxbot/DiscordBotBase - a bare-bones bot template
     // - https://github.com/foxbot/patek - a more feature-filled bot, utilizing more aspects of the library
     class Program
-    {
+    {        
+        //string connectionString = ConfigurationManager.ConnectionStrings["MyKey"].ConnectionString;
         private DiscordSocketClient _client;
-        string Token = "";
-        
-        private String CatagoryName = "ANON";
-        private readonly OverwritePermissions PermissionsAnonCatagory = new OverwritePermissions(
-            PermValue.Deny,   //PermValue createInstantInvite
-            PermValue.Deny,   //PermValue manageChannel
-            PermValue.Deny,   //PermValue addReactions
-            PermValue.Deny,   //PermValue viewChannel
-            PermValue.Deny,   //PermValue sendMessages
-            PermValue.Deny,   //PermValue sendTTSMessages
-            PermValue.Deny,   //PermValue manageMessages
-            PermValue.Deny,   //PermValue embedLinks
-            PermValue.Deny,   //PermValue attachFiles  !!!I wish I can attach files idk, will leave this inherit and change it if it works
-            PermValue.Deny,   //PermValue readMessageHistory
-            PermValue.Deny,   //PermValue mentionEveryone
-            PermValue.Deny,   //PermValue useExternalEmojis
-            PermValue.Deny,   //PermValue connect
-            PermValue.Deny,   //PermValue speak
-            PermValue.Deny,   //PermValue muteMembers
-            PermValue.Deny,   //PermValue deafenMembers
-            PermValue.Deny,   //PermValue moveMembers
-            PermValue.Deny,   //PermValue useVoiceActivation
-            PermValue.Deny,   //PermValue manageRoles
-            PermValue.Deny);  //PermValue manageWebhooks
 
-        private readonly OverwritePermissions PermissionsAnnChannel = new OverwritePermissions(
-            PermValue.Deny,    //PermValue createInstantInvite
-            PermValue.Deny,    //PermValue manageChannel
-            PermValue.Deny,    //PermValue addReactions
-            PermValue.Allow,   //PermValue viewChannel
-            PermValue.Allow,   //PermValue sendMessages
-            PermValue.Deny,    //PermValue sendTTSMessages
-            PermValue.Deny,    //PermValue manageMessages
-            PermValue.Allow,   //PermValue embedLinks
-            PermValue.Inherit, //PermValue attachFiles  !!!I wish I can attach files idk, will leave this inherit and change it if it works
-            PermValue.Allow,   //PermValue readMessageHistory
-            PermValue.Deny,    //PermValue mentionEveryone
-            PermValue.Deny,    //PermValue useExternalEmojis
-            PermValue.Deny,    //PermValue connect
-            PermValue.Deny,    //PermValue speak
-            PermValue.Deny,    //PermValue muteMembers
-            PermValue.Deny,    //PermValue deafenMembers
-            PermValue.Deny,    //PermValue moveMembers
-            PermValue.Deny,    //PermValue useVoiceActivation
-            PermValue.Deny,    //PermValue manageRoles
-            PermValue.Deny);   //PermValue manageWebhooks
+        readonly string Token = System.IO.File.ReadAllText(@"token.txt");//reads token from txt file becouse all the config stuff I cant get to work
+
+        AnonChannelManagement AnonChanMan = new AnonChannelManagement();
+
+        readonly private String CatagoryName = "ANON";        
 
         // Discord.Net heavily utilizes TAP for async, so we create
         // an asynchronous context from the beginning.
@@ -86,9 +45,6 @@ namespace AnonBot
             _client.UserJoined += UserJoinedAsync;
             _client.MessageReceived += MessageReceivedAsync;
             _client.UserLeft += UserLeftAsync;
-            //load jason file
-
-
         }
 
         public async Task MainAsync()
@@ -103,7 +59,7 @@ namespace AnonBot
 
         //Logs are sent to the console
         private Task LogAsync(LogMessage log)
-        {
+        {            
             Console.WriteLine(log.ToString());
             return Task.CompletedTask;
         }
@@ -121,8 +77,6 @@ namespace AnonBot
         // reading over the Commands Framework sample.
         private async Task MessageReceivedAsync(SocketMessage message)
         {
-            
-
             // The bot should never respond to itself.
             if (message.Author.Id == _client.CurrentUser.Id)
                 return;
@@ -131,7 +85,8 @@ namespace AnonBot
                 await message.Channel.SendMessageAsync("Bot Commands:\n" +
                     "something something idk");
             else if (message.Content == "\\join")
-                await CreateAnonChannel((SocketGuildUser)message.Author);                
+
+            await AnonChanMan.CreateAnonChannel((SocketGuildUser)message.Author, CatagoryName);
             else
             {
                 //get all text channels in the guild the message was sent from
@@ -154,163 +109,20 @@ namespace AnonBot
 
         }
 
-        // User Joined the Server
-        // Links to create annon channel method
+        // User Joined the Server        
         private async Task UserJoinedAsync(SocketGuildUser user)
         {
             Console.WriteLine($"User joined {user.Username}!");
-            await CreateAnonChannel(user);
+            await AnonChanMan.CreateAnonChannel(user, CatagoryName);
         }
 
-        // User Left the server
-        // links to remove channel method
-        //this is needed so there are not exes channels around being used.
+        // User Left the server        
         private async Task UserLeftAsync(SocketGuildUser user)
         {
             Console.WriteLine($"User left {user.Username}!");
-            await RemoveAnnonChannel(user);       
+            await AnonChanMan.RemoveAnnonChannel(user);       
         }
 
-        //
-        private async Task RemoveAnnonChannel(SocketGuildUser user)
-        { 
-            foreach (var chan in user.Guild.Channels)
-            {
-                if (chan.Name == user.Id.ToString())//looks for channel the same name as user ID
-                {
-                    await chan.DeleteAsync();
-                }
-            }
-            
-        }
-
-        /********************************************************
-         * Creates a new channel, for refrence only not used
-         * 
-         * ********************************************************/
-        public async Task CreateTextChat(string name, SocketGuild guild, string cName,  string startMessage = "")
-        {            
-            var text = await guild.CreateTextChannelAsync(name);
-            if (!(cName == ""))
-            {
-                ICategoryChannel category = guild.CategoryChannels.FirstOrDefault(x => x.Name == cName);
-
-                if (category == null)
-                {
-                    category = await guild.CreateCategoryChannelAsync(cName);
-                }
-
-                await text.ModifyAsync(x => x.CategoryId = category.Id);
-                
-            }
-
-             Console.WriteLine("Created Text Channel: " + name);
-        }
-
-        /* **************************************************************
-         * Create Anon Channel
-         * 1. Creates a new channgel named after the user
-         * 2. Checks if a catagory is made if not creates one and sets permissions
-         * 4. Sets permissions on channel so the user can only see that channel
-         * 5. Send Welcome message and pins it. 
-         * ****************************************************************/
-        private async Task CreateAnonChannel(SocketGuildUser user)
-        {           
-            var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
-
-            Console.WriteLine($"Creating Channel for {user.Username}! for  Guild {user.Guild.Name}");
-            var text = await user.Guild.CreateTextChannelAsync(user.Id.ToString());
-            if (string.IsNullOrEmpty(CatagoryName))//this works somehow
-            {
-                ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
-
-                if (category == null)
-                {
-                    category = await user.Guild.CreateCategoryChannelAsync(CatagoryName);                    
-                }
-                await text.ModifyAsync(x => x.CategoryId = category.Id);
-                await category.AddPermissionOverwriteAsync(everyoneRole, PermissionsAnonCatagory);
-            }
-           
-            await text.AddPermissionOverwriteAsync(everyoneRole, PermissionsAnonCatagory);
-            await text.AddPermissionOverwriteAsync(user, PermissionsAnnChannel);
-            //await user.Guild.AddPinAsync(channel.Id, msg.Id); //pin msg
-            await text.SendMessageAsync($"**Welcome {user.Mention} to {user.Guild.Name}!**\n\n" +
-            "Everyone on this server is in a channel by themselves and the bot. " +
-            "The bot grabs all messages sent by users and sends them to everyone elses channel. " +
-            "Becouse the bot posts the message you don't know who sent the message.\n\n" +
-            "This bot does not log anything. You can view the source code at https://github.com/doc543/AnonBot \n" +
-            "Use \"\\help\" - Brings up help text."
-            );
-            Console.WriteLine("Created Text Channel: " + CatagoryName);
-
-
-            //         |
-            //old code V
-            /*
-            //sees if catagory exists and creates one if there is none
-            var anonCatagory = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName); 
-            if (anonCatagory == null)
-            {
-                Console.WriteLine($"Catagory not found");
-                await user.Guild.CreateCategoryChannelAsync(CatagoryName);
-                anonCatagory = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
-                SocketRole everyoneRole;
-                foreach (var role in user.Guild.Roles)
-                {
-                    if (role.IsEveryone)
-                    {
-                        everyoneRole = role;                        
-                        await anonCatagory.AddPermissionOverwriteAsync(everyoneRole, PermissionsAnonCatagory);
-                        Console.WriteLine($"New Catagory, ID {anonCatagory.Id}");                        
-                        continue;
-                    }
-                }
-            }
-            Console.WriteLine($"Catagory, ID {anonCatagory.Id}");
-
-            
-            //creates a new channel that only the new user can acsess. 
-
-            var channel = await user.Guild.CreateTextChannelAsync(user.Id.ToString(), x =>//channel name is set to user ID so the delete method knows what channel to delete
-            {
-                x.Topic = "\\help for help text, bot commands do not get sent";
-                x.IsNsfw = true;
-                x.CategoryId = anonCatagory.Id; 
-            });
-
-            
-            await user.Guild.GetChannel(channel.Id).ModifyAsync(x =>
-            {
-                x.CategoryId = anonCatagory.Id;
-            });
-            
-            
-
-
-
-
-
-            Console.WriteLine($"Channel Name, {channel.Name}, ID {channel.Id}");
-
-            
-            //Modify permersions on users channel
-           
-            await channel.AddPermissionOverwriteAsync(user, PermissionsAnnChannel);
-
-            //Send Welcome Message
-            var msg = await channel.SendMessageAsync($"**Welcome {user.Mention} to {user.Guild.Name}!**\n\n" +
-                "Everyone on this server is in a channel by themselves and the bot. " +
-                "The bot grabs all messages sent by users and sends them to everyone elses channel. " +
-                "Becouse the bot posts the message you don't know who sent the message.\n\n" +
-                "This bot does not log anything. You can view the source code at https://github.com/doc543/AnonBot \n" +
-                "Use \"\\help\" - Brings up help text."
-                );
-            //await user.Guild.AddPinAsync(channel.Id, msg.Id); //pin msg
-            */
-            }
-
-
-
+             
     }
 } 
