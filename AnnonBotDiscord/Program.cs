@@ -17,15 +17,15 @@ namespace AnonBot
     // - https://github.com/foxbot/DiscordBotBase - a bare-bones bot template
     // - https://github.com/foxbot/patek - a more feature-filled bot, utilizing more aspects of the library
     class Program
-    {        
-        //string connectionString = ConfigurationManager.ConnectionStrings["MyKey"].ConnectionString;
+    {
+        //changable vars
+        readonly private String CatagoryName = "ANON";
+        readonly private char PrefixChar = '!';
+
         private DiscordSocketClient _client;
-
-        readonly string Token = System.IO.File.ReadAllText(@"token.txt");//reads token from txt file becouse all the config stuff I cant get to work
-
+        
         AnonChannelManagement AnonChanMan = new AnonChannelManagement();
-
-        readonly private String CatagoryName = "ANON";        
+        CommandHandaler CmdHandiler = new CommandHandaler('!');
 
         // Discord.Net heavily utilizes TAP for async, so we create
         // an asynchronous context from the beginning.
@@ -49,9 +49,10 @@ namespace AnonBot
 
         public async Task MainAsync()
         {
+            
             var _config = new DiscordSocketConfig { MessageCacheSize = 100 };
             // Tokens should be considered secret data, and never hard-coded.
-            await _client.LoginAsync(TokenType.Bot, Token);
+            await _client.LoginAsync(TokenType.Bot, getToken());
             await _client.StartAsync();
             // Block the program until it is closed.
             await Task.Delay(-1);
@@ -59,7 +60,7 @@ namespace AnonBot
 
         //Logs are sent to the console
         private Task LogAsync(LogMessage log)
-        {            
+        {
             Console.WriteLine(log.ToString());
             return Task.CompletedTask;
         }
@@ -81,33 +82,15 @@ namespace AnonBot
             if (message.Author.Id == _client.CurrentUser.Id)
                 return;
 
-            if (message.Content == "\\help")// help commands
-                await message.Channel.SendMessageAsync("Bot Commands:\n" +
-                    "something something idk");
-            else if (message.Content == "\\join")
-
-            await AnonChanMan.CreateAnonChannel((SocketGuildUser)message.Author, CatagoryName);
+            if (message.Content[0] == PrefixChar)
+                await CmdHandiler.Command(message, _client);
             else
-            {
-                //get all text channels in the guild the message was sent from
-                SocketTextChannel messageTextChannel = message.Channel as SocketTextChannel;// convert to something i can work with this part hurts my brain
-                if (messageTextChannel != null)
-                {
-                    var guildTextChannels = messageTextChannel.Guild.TextChannels.OfType<SocketTextChannel>();
-                    foreach (var txChannel in guildTextChannels)//go though all channels on server
-                    {
-                        if (txChannel.Category.Name == CatagoryName)//check if channel is in the correct catagory name and send the message
-                        {
-                            await txChannel.SendMessageAsync("**" + message.Id % 42069 + "**\n" + message.Content); //send message to all 
-                            await message.DeleteAsync();//deletes original message
-                        }
-                    }
-                }
-                else
-                    Console.WriteLine("That casting is borked rip");
-            }
+                await CmdHandiler.SendAnonMessage(message);
+            await message.DeleteAsync();//deletes original message
+
 
         }
+
 
         // User Joined the Server        
         private async Task UserJoinedAsync(SocketGuildUser user)
@@ -120,9 +103,21 @@ namespace AnonBot
         private async Task UserLeftAsync(SocketGuildUser user)
         {
             Console.WriteLine($"User left {user.Username}!");
-            await AnonChanMan.RemoveAnnonChannel(user);       
+            await AnonChanMan.RemoveAnnonChannel(user);
         }
 
-             
+        private string getToken()
+        {
+            String envName = "DiscordToken";
+
+            // Determine whether the environment variable exists.
+            if (Environment.GetEnvironmentVariable(envName) == null)
+            {
+                // If it doesn't exist, create it.
+                Console.WriteLine("No DiscordToken Enviroment Varable! Please enter It now:");
+                Environment.SetEnvironmentVariable(envName, Console.ReadLine());
+            }
+            return Environment.GetEnvironmentVariable(envName);
+        }
     }
 } 

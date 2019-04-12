@@ -66,19 +66,19 @@ namespace AnnonBotDiscord
             var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
 
             Console.WriteLine($"Creating Channel for {user.Username}! for  Guild {user.Guild.Name}");
+            //create text channel
             var text = await user.Guild.CreateTextChannelAsync(user.Id.ToString());
-            if (string.IsNullOrEmpty(catagoryName))//this works somehow
-            {
-                ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == catagoryName);
 
-                if (category == null)
-                {
-                    category = await user.Guild.CreateCategoryChannelAsync(catagoryName);
-                }
-                await text.ModifyAsync(x => x.CategoryId = category.Id);
+            //find cataory named whatever
+            ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == catagoryName);
+            //if catagory exits make a new one
+            if (category == null)
+            {
+                category = await user.Guild.CreateCategoryChannelAsync(catagoryName);
                 await category.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
             }
 
+            await text.ModifyAsync(x => x.CategoryId = category.Id);            
             await text.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
             await text.AddPermissionOverwriteAsync(user, PermissionsAnnChannel);
 
@@ -90,6 +90,37 @@ namespace AnnonBotDiscord
             "Use \"\\help\" - Brings up help text.");
             await msg.PinAsync();
             Console.WriteLine("Created Text Channel: " + catagoryName);
+        }
+
+        public async Task CreateAnonChannel2(SocketGuildUser user, string CatagoryName)
+        {
+            var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
+
+            Console.WriteLine($"Creating Channel for {user.Username}! for  Guild {user.Guild.Name}");
+            var text = await user.Guild.CreateTextChannelAsync(user.Id.ToString());
+            if (string.IsNullOrEmpty(CatagoryName))//this works somehow
+            {
+                ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
+
+                if (category == null)
+                {
+                    category = await user.Guild.CreateCategoryChannelAsync(CatagoryName);
+                }
+                await text.ModifyAsync(x => x.CategoryId = category.Id);
+                await category.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
+            }
+
+            await text.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
+            await text.AddPermissionOverwriteAsync(user, PermissionsAnnChannel);
+            //await user.Guild.AddPinAsync(channel.Id, msg.Id); //pin msg
+            await text.SendMessageAsync($"**Welcome {user.Mention} to {user.Guild.Name}!**\n\n" +
+            "Everyone on this server is in a channel by themselves and the bot. " +
+            "The bot grabs all messages sent by users and sends them to everyone elses channel. " +
+            "Becouse the bot posts the message you don't know who sent the message.\n\n" +
+            "This bot does not log anything. You can view the source code at https://github.com/doc543/AnonBot \n" +
+            "Use \"\\help\" - Brings up help text."
+            );
+            Console.WriteLine("Created Text Channel: " + CatagoryName);
         }
 
         /********************************************************
@@ -112,7 +143,7 @@ namespace AnnonBotDiscord
         * Creates a new channel, for refrence only not used
         * 
         * ********************************************************/
-        public async Task CreateTextChat(string name, SocketGuild guild, string cName, string startMessage = "")
+        private async Task CreateTextChat(string name, SocketGuild guild, string cName, string startMessage = "")
         {
             var text = await guild.CreateTextChannelAsync(name);
             if (!(cName == ""))
