@@ -2,8 +2,6 @@
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
-using System.Linq;
-using Blun.ConfigurationManager;
 using AnnonBotDiscord;
 
 namespace AnonBot
@@ -19,13 +17,13 @@ namespace AnonBot
     class Program
     {
         //changable vars
-        readonly private String CatagoryName = "ANON";
-        readonly private char PrefixChar = '!';
+        readonly static private String CatagoryName = "ANON";
+        readonly static private char PrefixChar = '!';
 
         private DiscordSocketClient _client;
-        
-        AnonChannelManagement AnonChanMan = new AnonChannelManagement();
-        CommandHandaler CmdHandiler = new CommandHandaler('!');
+
+        AnonChannelManagement AnonChanMan = new AnonChannelManagement(CatagoryName);
+        MessageHandaler MagHandeler = new MessageHandaler(PrefixChar);
 
         // Discord.Net heavily utilizes TAP for async, so we create
         // an asynchronous context from the beginning.
@@ -49,10 +47,10 @@ namespace AnonBot
 
         public async Task MainAsync()
         {
-            
+
             var _config = new DiscordSocketConfig { MessageCacheSize = 100 };
             // Tokens should be considered secret data, and never hard-coded.
-            await _client.LoginAsync(TokenType.Bot, getToken());
+            await _client.LoginAsync(TokenType.Bot, GetToken());
             await _client.StartAsync();
             // Block the program until it is closed.
             await Task.Delay(-1);
@@ -76,27 +74,25 @@ namespace AnonBot
 
         // This is not the recommended way to write a bot - consider
         // reading over the Commands Framework sample.
-        private async Task MessageReceivedAsync(SocketMessage message)
+        private async Task MessageReceivedAsync(SocketMessage rawMessage)
         {
+            // Check if it is a user sending the message not a bot
+            if (!(rawMessage is SocketUserMessage message)) return;
             // The bot should never respond to itself.
-            if (message.Author.Id == _client.CurrentUser.Id)
-                return;
+            if (message.Source != MessageSource.User) return;
+            // Make sure it is in a guild channel
+            if (!(rawMessage.Channel is SocketGuildChannel channel)) return;
 
-            if (message.Content[0] == PrefixChar)
-                await CmdHandiler.Command(message, _client);
-            else
-                await CmdHandiler.SendAnonMessage(message);
-            await message.DeleteAsync();//deletes original message
-
-
+            SocketTextChannel messageTextChannel = message.Channel as SocketTextChannel;// convert to something i can work with this part hurts my brain
+            SocketCategoryChannel catagory = messageTextChannel.Category as SocketCategoryChannel;
+            await MagHandeler.Message(message, catagory);            
         }
-
 
         // User Joined the Server        
         private async Task UserJoinedAsync(SocketGuildUser user)
         {
             Console.WriteLine($"User joined {user.Username}!");
-            await AnonChanMan.CreateAnonChannel(user, CatagoryName);
+            await AnonChanMan.CreateAnonChannel(user);
         }
 
         // User Left the server        
@@ -106,18 +102,22 @@ namespace AnonBot
             await AnonChanMan.RemoveAnnonChannel(user);
         }
 
-        private string getToken()
+        private string GetToken()
         {
-            String envName = "DiscordToken";
-
-            // Determine whether the environment variable exists.
-            if (Environment.GetEnvironmentVariable(envName) == null)
+            string token = "";
+            string path = @"token.txt";
+            try
             {
-                // If it doesn't exist, create it.
-                Console.WriteLine("No DiscordToken Enviroment Varable! Please enter It now:");
-                Environment.SetEnvironmentVariable(envName, Console.ReadLine());
+                token = System.IO.File.ReadAllText(path);
             }
-            return Environment.GetEnvironmentVariable(envName);
+            catch
+            { 
+                // If it doesn't exist, create it.
+                Console.WriteLine("No Token file found! Please enter It now:");
+                token = Console.ReadLine();
+                System.IO.File.WriteAllText(path, token);
+            }
+            return token;
         }
     }
-} 
+}

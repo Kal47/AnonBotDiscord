@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
@@ -54,6 +52,13 @@ namespace AnnonBotDiscord
             PermValue.Deny,    //PermValue manageRoles
             PermValue.Deny);   //PermValue manageWebhooks
 
+        private readonly string CatagoryName = "ANON";
+
+        public AnonChannelManagement(string catName)
+        {
+            CatagoryName = catName;
+        }
+
         /* **************************************************************
          * Create Anon Channel
          * 1. Creates a new channgel named after the user
@@ -61,7 +66,7 @@ namespace AnnonBotDiscord
          * 4. Sets permissions on channel so the user can only see that channel
          * 5. Send Welcome message and pins it. 
          * ****************************************************************/
-        public async Task CreateAnonChannel(SocketGuildUser user, string catagoryName)
+        public async Task CreateAnonChannel(SocketGuildUser user)
         {
             var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
 
@@ -70,11 +75,11 @@ namespace AnnonBotDiscord
             var text = await user.Guild.CreateTextChannelAsync(user.Id.ToString());
 
             //find cataory named whatever
-            ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == catagoryName);
+            ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
             //if catagory exits make a new one
             if (category == null)
             {
-                category = await user.Guild.CreateCategoryChannelAsync(catagoryName);
+                category = await user.Guild.CreateCategoryChannelAsync(CatagoryName);
                 await category.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
             }
 
@@ -89,10 +94,10 @@ namespace AnnonBotDiscord
             "This bot does not log anything. You can view the source code at https://github.com/doc543/AnonBot \n" +
             "Use \"\\help\" - Brings up help text.");
             await msg.PinAsync();
-            Console.WriteLine("Created Text Channel: " + catagoryName);
+            Console.WriteLine("Created Text Channel: " + CatagoryName);
         }
 
-        public async Task CreateAnonChannel2(SocketGuildUser user, string CatagoryName)
+        public async Task CreateAnonChannel2(SocketGuildUser user)
         {
             var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
 
@@ -136,14 +141,13 @@ namespace AnnonBotDiscord
                     await chan.DeleteAsync();
                 }
             }
-
         }
 
         /********************************************************
         * Creates a new channel, for refrence only not used
         * 
         * ********************************************************/
-        private async Task CreateTextChat(string name, SocketGuild guild, string cName, string startMessage = "")
+        private async Task CreateTextChat(string name, SocketGuild guild, string cName)
         {
             var text = await guild.CreateTextChannelAsync(name);
             if (!(cName == ""))
