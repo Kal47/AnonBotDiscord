@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using AnnonBotDiscord;
+using Discord.Commands;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AnonBot
 {
@@ -41,19 +43,38 @@ namespace AnonBot
             _client.Log += LogAsync;
             _client.Ready += ReadyAsync;
             _client.UserJoined += UserJoinedAsync;
-            _client.MessageReceived += MessageReceivedAsync;
             _client.UserLeft += UserLeftAsync;
         }
 
         public async Task MainAsync()
         {
+            using (var services = ConfigureServices())
+            {
+                var client = services.GetRequiredService<DiscordSocketClient>();
 
-            var _config = new DiscordSocketConfig { MessageCacheSize = 100 };
-            // Tokens should be considered secret data, and never hard-coded.
-            await _client.LoginAsync(TokenType.Bot, GetToken());
-            await _client.StartAsync();
-            // Block the program until it is closed.
-            await Task.Delay(-1);
+                client.Log += LogAsync;
+                client.Ready += ReadyAsync;
+                services.GetRequiredService<CommandService>().Log += LogAsync;
+
+                // Tokens should be considered secret data and never hard-coded.
+                // We can read from the environment variable to avoid hardcoding.
+                await client.LoginAsync(TokenType.Bot, GetToken());
+                await client.StartAsync();
+
+                // Here we initialize the logic required to register our commands.
+                await services.GetRequiredService<CommandHandler>().InitializeAsync();
+
+                await Task.Delay(-1);
+            }
+        }
+
+        private ServiceProvider ConfigureServices()
+        {
+            return new ServiceCollection()
+                .AddSingleton<DiscordSocketClient>()
+                .AddSingleton<CommandService>()
+                .AddSingleton<CommandHandler>()
+                .BuildServiceProvider();
         }
 
         //Logs are sent to the console
@@ -70,22 +91,6 @@ namespace AnonBot
             Console.WriteLine($"{_client.CurrentUser} is connected!");
 
             return Task.CompletedTask;
-        }
-
-        // This is not the recommended way to write a bot - consider
-        // reading over the Commands Framework sample.
-        private async Task MessageReceivedAsync(SocketMessage rawMessage)
-        {
-            // Check if it is a user sending the message not a bot
-            if (!(rawMessage is SocketUserMessage message)) return;
-            // The bot should never respond to itself.
-            if (message.Source != MessageSource.User) return;
-            // Make sure it is in a guild channel
-            if (!(rawMessage.Channel is SocketGuildChannel channel)) return;
-
-            SocketTextChannel messageTextChannel = message.Channel as SocketTextChannel;// convert to something i can work with this part hurts my brain
-            SocketCategoryChannel catagory = messageTextChannel.Category as SocketCategoryChannel;
-            await MagHandeler.Message(message, catagory);            
         }
 
         // User Joined the Server        
@@ -121,3 +126,10 @@ namespace AnonBot
         }
     }
 }
+/* serverID bigint
+ * CatagoryID bigint
+ * Prefix varchar(255)
+ * AutoJoin bool
+ * PublicChannelID bigint //if null no public channel
+ * 
+ * /

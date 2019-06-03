@@ -163,7 +163,9 @@
   <ItemGroup>
     <Compile Include="ChannelManagement.cs" />
     <Compile Include="CommandHandaler.cs" />
+    <Compile Include="CommandHandiler.cs" />
     <Compile Include="MessageHandaler.cs" />
+    <Compile Include="Module.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

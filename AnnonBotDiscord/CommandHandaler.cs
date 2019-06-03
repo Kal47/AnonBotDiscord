@@ -5,7 +5,7 @@ using Discord.WebSocket;
 
 namespace AnnonBotDiscord
 {
-    class CommandHandaler
+    class CommandHandaler2
     {
         /****************************************
         * Suported Commands
