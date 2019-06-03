@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 
-namespace AnnonBotDiscord
+namespace Example
 {
     class AnonChannelManagement
     {        
@@ -74,11 +74,11 @@ namespace AnnonBotDiscord
             PermValue.Deny,   //PermValue manageRoles
             PermValue.Deny);  //PermValue manageWebhooks
 
-        private readonly string CatagoryName = "ANON";
+        private readonly ulong CatagoryID = 0;
 
-        public AnonChannelManagement(string catName)
+        public AnonChannelManagement(ulong catagoryID)
         {
-            CatagoryName = catName;
+            CatagoryID = catagoryID;
         }
 
         /* **************************************************************
@@ -90,20 +90,20 @@ namespace AnnonBotDiscord
          * ****************************************************************/
         public async Task CreateAnonChannel(SocketGuildUser user)
         {
-            user.Guild.GetChannel(12345);
             var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
 
             Console.WriteLine($"Creating Channel for {user.Username}! for  Guild {user.Guild.Name}");
             //create text channel
             var text = await user.Guild.CreateTextChannelAsync(user.Id.ToString());
 
-            //find cataory named whatever
-            ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
+            //find catagory named whatever
+            ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Id == CatagoryID);
             //if catagory exits make a new one
             if (category == null)
             {
-                category = await user.Guild.CreateCategoryChannelAsync(CatagoryName);
+                category = await user.Guild.CreateCategoryChannelAsync("Annoyamus Channels");
                 await category.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
+                
             }
 
             await text.ModifyAsync(x => x.CategoryId = category.Id);            
@@ -117,42 +117,51 @@ namespace AnnonBotDiscord
             "This bot does not log anything. You can view the source code at https://github.com/doc543/AnonBot \n" +
             "Use \"\\help\" - Brings up help text.");
             await msg.PinAsync();
-            Console.WriteLine("Created Text Channel: " + CatagoryName);
+            Console.WriteLine("Created Text Channel: " + CatagoryID.ToString());
         }
-
-        public async Task CreatePublicAnonChannel(SocketGuildUser user)
+        /********************************************************
+        * Creates Public Anon Channel
+        * ********************************************************/
+        public async Task CreatePublicAnonChannel(SocketGuild guild)
         {
-            var everyoneRole = user.Guild.Roles.FirstOrDefault(x => x.IsEveryone);
+            var everyoneRole = guild.Roles.FirstOrDefault(x => x.IsEveryone);
 
-            Console.WriteLine($"Creating Public Channel for Guild {user.Guild.Name}");
-            //create text channel
-            var text = await user.Guild.CreateTextChannelAsync("Anonymus-Chat");
-
-            //find cataory named whatever
-            ICategoryChannel category = user.Guild.CategoryChannels.FirstOrDefault(x => x.Name == CatagoryName);
+            Console.WriteLine($"Creating PublicChannel for Guild {guild.Name}");
+            var text = await guild.CreateTextChannelAsync("Anon");
+            ICategoryChannel category = guild.CategoryChannels.FirstOrDefault(x => x.Id == CatagoryID);
             //if catagory exits make a new one
             if (category == null)
             {
-                category = await user.Guild.CreateCategoryChannelAsync(CatagoryName);
+                category = await guild.CreateCategoryChannelAsync("Anonyomus Channels");
                 await category.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
             }
 
+            await text.AddPermissionOverwriteAsync(everyoneRole, PermissionsReadOnly);
             await text.ModifyAsync(x => x.CategoryId = category.Id);
-            await text.AddPermissionOverwriteAsync(everyoneRole, PermissionsDenyAll);
-            await text.AddPermissionOverwriteAsync(user, PermissionsAnnChannel);
 
-            var msg = await text.SendMessageAsync($"**Welcome {user.Mention} to {user.Guild.Name}!**\n\n" +
-            "Everyone on this server is in a channel by themselves and the bot. " +
+            var message = await text.SendMessageAsync($"**Welcome to {guild.Name}'s Anonamus Channel!**\n\n" +
+            "This channel allows all the users on the server to see the anonamous chat without being in it." +
             "The bot grabs all messages sent by users and sends them to everyone elses channel. " +
             "Becouse the bot posts the message you don't know who sent the message.\n\n" +
-            "This bot does not log anything. You can view the source code at https://github.com/doc543/AnonBot \n" +
-            "Use \"\\help\" - Brings up help text.");
-            await msg.PinAsync();
-            Console.WriteLine("Created Text Channel: " + CatagoryName);
+            "You can view the source code at https://github.com/doc543/AnonBot \n");
+            await message.PinAsync();
+
+            Console.WriteLine("Created Text Channel: " + CatagoryID.ToString());
         }
+
+        /********************************************************
+        * Remove Public Anon Channel
+        * ********************************************************/
+        public async Task RemovePublicAnonChannel(SocketGuild guild)
+        {
+            ulong channelID = 0; //get sql to get channel id of that server
+
+            await guild.GetChannel(channelID).DeleteAsync();
+
+        }
+
         /********************************************************
         * Removes an Anon channel
-        * 
         * ********************************************************/
         public async Task RemoveAnnonChannel(SocketGuildUser user)
         {
@@ -163,28 +172,6 @@ namespace AnnonBotDiscord
                     await chan.DeleteAsync();
                 }
             }
-        }
-
-        /********************************************************
-        * Creates a new channel, for refrence only not used
-        * 
-        * ********************************************************/
-        private async Task CreateTextChat(string name, SocketGuild guild, string cName)
-        {
-            var text = await guild.CreateTextChannelAsync(name);
-            if (!(cName == ""))
-            {
-                ICategoryChannel category = guild.CategoryChannels.FirstOrDefault(x => x.Name == cName);
-
-                if (category == null)
-                {
-                    category = await guild.CreateCategoryChannelAsync(cName);
-                }
-
-                await text.ModifyAsync(x => x.CategoryId = category.Id);
-
-            }
-            Console.WriteLine("Created Text Channel: " + name);
-        }
+        }  
     }
 }
